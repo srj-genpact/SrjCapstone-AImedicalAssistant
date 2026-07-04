@@ -47,10 +47,10 @@ def register():
     if not username or not email or not password:
         return jsonify({"error": "Missing required fields (username, email, password)."}), 400
 # Username already exist
-    if User.query.filter_by(username=username).first():
+    if User.query.filter(User.username.ilike(username)).first():
         return jsonify({"error": "Username already exists."}), 400
 # email already exist
-    if User.query.filter_by(email=email).first():
+    if User.query.filter(User.email.ilike(email)).first():
         return jsonify({"error": "Email already exists."}), 400
 
     try:
@@ -88,7 +88,7 @@ def login():
     if not username or not password:
         return jsonify({"error": "Username and password are required."}), 400
 
-    user = User.query.filter_by(username=username).first()
+    user = User.query.filter(User.username.ilike(username)).first()
     
     if not user or not user.check_password(password):
         return jsonify({"error": "Invalid username or password."}), 401
