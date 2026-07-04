@@ -1,14 +1,84 @@
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react';
 import Auth from './components/Auth';
+import ProfileManager from './components/ProfileManager';
+import MedicalAssistant from './components/MedicalAssistant';
 
 const API_BASE_URL = 'http://127.0.0.1:5000/api';
 
-function App() {
+export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [checkingAuth, setCheckingAuth] = useState(true);
 
+  // Navigation View ('chat' or 'profile')
   const [view, setView] = useState('chat');
+
+  // Conditions list summary state for stats counters
+  const [conditionsCount, setConditionsCount] = useState(0);
+
+  // Helper for requests with auth header
+  const getAuthHeaders = () => {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  };
+
+  // 1. Verify session on mount or token changes
+  useEffect(() => {
+    const checkSession = async () => {
+      if (!token) {
+        setCheckingAuth(false);
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (response.ok && data.authenticated) {
+          setUser(data.user);
+        } else {
+          handleLogout();
+        }
+      } catch (err) {
+        console.error('Session check failed:', err);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+    checkSession();
+  }, [token]);
+
+  // 2. Fetch Conditions count for dashboard counters
+  const fetchConditionsCount = async () => {
+    if (!token) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/conditions`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setConditionsCount(data.length);
+      }
+    } catch (err) {
+      console.error('Failed to update stats count:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchConditionsCount();
+    }
+  }, [user, view]); // Reload when switching views to update stats
+
+  // Auth actions
+  const handleAuthSuccess = (loggedInUser, userToken) => {
+    localStorage.setItem('token', userToken);
+    setToken(userToken);
+    setUser(loggedInUser);
+    setView('chat');
+  };
 
   const handleLogout = async () => {
     try {
@@ -28,8 +98,50 @@ function App() {
     }
   };
 
+  // Profile Update Action
+  const handleUpdateProfile = async (profileData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(profileData)
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update profile.');
+      }
+      setUser(data.user);
+    } catch (err) {
+      console.error('Profile update failed:', err);
+    }
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="loading-box">
+          <div className="spinner" />
+          <p style={{ marginTop: '1rem', fontFamily: 'var(--font-heading)' }}>Connecting with Health Vault...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Auth screen if not logged in
+  if (!user) {
+    return (
+      <div className="app-container">
+        <Auth
+          onAuthSuccess={(user, token) => handleAuthSuccess(user, token)}
+          apiBaseUrl={API_BASE_URL}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
+      {/* Navbar Header */}
       <nav className="navbar glass-panel">
         <div className="nav-brand">
           <svg viewBox="0 0 24 24">
@@ -111,10 +223,21 @@ function App() {
           </div>
         </div>
 
-        {/* Profile consultation histry component to come here.. */}
+        {/* View Routing */}
+        {view === 'chat' ? (
+          <MedicalAssistant
+            token={token}
+            apiBaseUrl={API_BASE_URL}
+          />
+        ) : (
+          <ProfileManager
+            user={user}
+            onUpdateProfile={handleUpdateProfile}
+            apiBaseUrl={API_BASE_URL}
+            token={token}
+          />
+        )}
       </main>
     </div>
-  )
+  );
 }
-
-export default App
