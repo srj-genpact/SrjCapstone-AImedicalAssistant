@@ -43,13 +43,13 @@ def register():
     date_of_birth = data.get('date_of_birth')
     gender = data.get('gender')
     medical_history = data.get('medical_history', '')
-
+# username,email and password validation
     if not username or not email or not password:
         return jsonify({"error": "Missing required fields (username, email, password)."}), 400
-
+# Username already exist
     if User.query.filter_by(username=username).first():
         return jsonify({"error": "Username already exists."}), 400
-
+# email already exist
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email already exists."}), 400
 
