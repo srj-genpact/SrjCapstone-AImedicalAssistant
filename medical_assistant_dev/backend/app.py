@@ -6,8 +6,9 @@ from dotenv import load_dotenv
 # Load env variables
 load_dotenv()
 
-from models import db, User, MedicalCondition
+from models import db, User, MedicalCondition, Consultation
 from auth import auth_bp, login_required
+from rag import rag_engine
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key_12345')
@@ -181,6 +182,91 @@ def delete_condition(current_user, condition_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to delete condition: {str(e)}"}), 500
+
+
+# --- Consultations & personalized RAG assistant routes ---
+
+@app.route('/api/consultations', methods=['POST'])
+@login_required
+def create_consultation(current_user):
+    """Triggers the personalized RAG pipeline and registers the chat consultation session."""
+    data = request.get_json() or {}
+    query_text = data.get('query_text')
+
+    if not query_text:
+        return jsonify({"error": "Symptom query is required."}), 400
+
+    try:
+        # Run the RAG pipeline passing the patient context
+        response_text, sources = rag_engine.generate_response(query_text, user=current_user)
+
+        new_consultation = Consultation(
+            user_id=current_user.id,
+            query_text=query_text,
+            response_text=response_text
+        )
+        new_consultation.set_sources(sources)
+
+        db.session.add(new_consultation)
+        db.session.commit()
+
+        return jsonify(new_consultation.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"RAG Consultation failed: {str(e)}"}), 500
+
+@app.route('/api/consultations', methods=['GET'])
+@login_required
+def get_consultations(current_user):
+    """Get all consultations/notes for the logged-in patient."""
+    consultations = Consultation.query.filter_by(user_id=current_user.id)\
+                                      .order_by(Consultation.created_at.desc()).all()
+    return jsonify([c.to_dict() for c in consultations]), 200
+
+@app.route('/api/consultations/<int:consultation_id>', methods=['PUT'])
+@login_required
+def update_consultation_notes(current_user, consultation_id):
+    """Allows the patient to save personal observations and reminders on a session."""
+    consultation = db.session.get(Consultation, consultation_id)
+    if not consultation:
+        return jsonify({"error": "Consultation record not found."}), 404
+
+    # Verify ownership
+    if consultation.user_id != current_user.id:
+        return jsonify({"error": "Access denied."}), 403
+
+    data = request.get_json() or {}
+    notes = data.get('notes')
+
+    if notes is not None:
+        consultation.notes = notes
+
+    try:
+        db.session.commit()
+        return jsonify(consultation.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to update health notes: {str(e)}"}), 500
+
+@app.route('/api/consultations/<int:consultation_id>', methods=['DELETE'])
+@login_required
+def delete_consultation(current_user, consultation_id):
+    """Delete a consultation record."""
+    consultation = db.session.get(Consultation, consultation_id)
+    if not consultation:
+        return jsonify({"error": "Consultation record not found."}), 404
+
+    # Verify ownership
+    if consultation.user_id != current_user.id:
+        return jsonify({"error": "Access denied."}), 403
+
+    try:
+        db.session.delete(consultation)
+        db.session.commit()
+        return jsonify({"message": "Consultation record deleted successfully."}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to delete consultation: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=True)
