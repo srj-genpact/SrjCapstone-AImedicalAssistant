@@ -6,12 +6,12 @@ from dotenv import load_dotenv
 # Load env variables
 load_dotenv()
 
-from models import db
+from models import db, User
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key_12345')
 
-# Database path
+# Ensure we use an absolute path for the SQLite database so it remains consistent
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INSTANCE_DIR = os.path.join(BASE_DIR, 'instance')
 if not os.path.exists(INSTANCE_DIR):
@@ -42,6 +42,29 @@ def health_check():
         "status": "healthy",
         "message": "AI Medical Assistant API is working & running.",
         "stage": 2
+    }), 200
+
+@app.route('/api/getTestdata', methods=['GET'])
+def getTestdata():
+    """Fetching test data from the database."""
+    # Fetch the first user from the database as test data
+    first_user = User.query.first()
+    testdata = first_user.to_dict() if first_user else {"message": "No users found in database. Please run seed.py first."}
+    return jsonify({
+        "status": "ok",
+        "message": "Successfully fetched sample user data.",
+        "stage": 2,
+        "testdata": testdata
+    }), 200
+
+@app.route('/api/users', methods=['GET'])
+def get_all_users():
+    """Retrieve all users from the database."""
+    all_users = User.query.all()
+    return jsonify({
+        "status": "ok",
+        "stage": 2,
+        "users": [u.to_dict() for u in all_users]
     }), 200
 
 if __name__ == '__main__':
