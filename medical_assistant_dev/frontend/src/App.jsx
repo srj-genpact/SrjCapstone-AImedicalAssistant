@@ -1,11 +1,32 @@
 import { useState } from 'react'
+//import Auth from './components/Auth';
 
-import './App.css'
+const API_BASE_URL = 'http://127.0.0.1:5000/api';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   const [view, setView] = useState('chat');
+
+  const handleLogout = async () => {
+    try {
+      if (token) {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+    } catch (err) {
+      console.error('Logout request failed:', err);
+    } finally {
+      localStorage.removeItem('token');
+      setToken('');
+      setUser(null);
+      setView('chat');
+    }
+  };
 
   return (
     <div className="app-container">
@@ -42,7 +63,7 @@ function App() {
             <span>Patient: {user.username}</span>
           </li>
           <li>
-            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
+            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }} onClick={handleLogout}>
               Logout
             </button>
           </li>
