@@ -1,5 +1,5 @@
 import { useState } from 'react'
-//import Auth from './components/Auth';
+import Auth from './components/Auth';
 
 const API_BASE_URL = 'http://127.0.0.1:5000/api';
 
