@@ -27,7 +27,11 @@ CORS(app, supports_credentials=True, origins=[
     "http://localhost:5173", 
     "http://127.0.0.1:5173",
     "http://localhost:5174", 
-    "http://127.0.0.1:5174"
+    "http://127.0.0.1:5174",
+    "https://srjrocks.kvsinfosoft.in",
+    "https://kvsinfosoft.in",
+    "https://srjaimedicalassistant-75nm8gc3m-srj-team.vercel.app",
+    "https://aimedicalassistant.vercel.app"
 ])
 
 # Initialize database

@@ -3,7 +3,8 @@ import Auth from './components/Auth';
 import ProfileManager from './components/ProfileManager';
 import MedicalAssistant from './components/MedicalAssistant';
 
-const API_BASE_URL = 'http://127.0.0.1:5000/api';
+//const API_BASE_URL = 'http://127.0.0.1:5000/api';
+const API_BASE_URL = 'https://srjrocks.pythonanywhere.com/api';
 
 export default function App() {
   const [user, setUser] = useState(null);
